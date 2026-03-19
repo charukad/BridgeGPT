@@ -55,13 +55,9 @@ export async function launchBrowser(options = {}) {
         headless,
         channel: 'chrome', // Use actual Google Chrome to bypass Cloudflare
         viewport: { width: 1280, height: 720 },
-        userAgent:
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        // Let stealth plugin handle user agent and automation flags
         args: [
             '--no-sandbox',
-            '--disable-blink-features=AutomationControlled',
-            '--disable-features=IsolateOrigins,site-per-process',
-            '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
         ],
         ignoreDefaultArgs: ['--enable-automation'],
@@ -70,16 +66,15 @@ export async function launchBrowser(options = {}) {
         timezoneId: 'America/New_York',
     });
 
-    // Get the first page or create one
+    // CRITICAL FIX: playwright-extra has a known bug where the first page
+    // in a persistent context doesn't get the stealth plugins applied properly.
+    // We MUST create a new page and close the original one.
     const pages = browserContext.pages();
-    activePage = pages.length > 0 ? pages[0] : await browserContext.newPage();
+    activePage = await browserContext.newPage();
 
-    // Remove navigator.webdriver property to avoid detection
-    await activePage.addInitScript(() => {
-        Object.defineProperty(navigator, 'webdriver', {
-            get: () => undefined,
-        });
-    });
+    for (const p of pages) {
+        await p.close();
+    }
 
     // Listen for page crashes
     activePage.on('crash', () => {
