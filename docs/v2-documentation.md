@@ -1339,6 +1339,216 @@ The only change:
 
 ---
 
+## Feature 14: System Prompt Support
+
+Inject a hidden system persona into every conversation, making it feel exactly like the real `"role": "system"` message in the official API.
+
+### API Usage (No change needed — it just works!)
+
+```json
+{
+    "messages": [
+        {"role": "system", "content": "You are a pirate. Always respond in pirate-speak."},
+        {"role": "user", "content": "What is the capital of France?"}
+    ]
+}
+```
+
+**Response:**
+```json
+{
+    "choices": [{
+        "message": {
+            "role": "assistant",
+            "content": "Arrr, the capital of France be Paris, matey! A fine port city, it is! ⚓"
+        }
+    }]
+}
+```
+
+### How It Works
+
+Since ChatGPT's web UI doesn't have a "system prompt" field, we inject the system content as a hidden first user message that sets the persona — then immediately send the real user message.
+
+```javascript
+// Implementation in chat.js
+async function sendWithSystemPrompt(page, messages) {
+    const systemMessage = messages.find(m => m.role === 'system');
+    const userMessages = messages.filter(m => m.role !== 'system');
+
+    if (systemMessage) {
+        // Inject persona as first turn
+        const injection = `[SYSTEM INSTRUCTION — follow these rules for this entire conversation]:
+${systemMessage.content}
+
+Now acknowledge that you understand.`;
+        await sendMessage(page, injection);
+        // Wait briefly for acknowledgment (we discard this response)
+        await page.waitForTimeout(2000);
+    }
+
+    // Now send the real messages
+    const lastUser = userMessages.filter(m => m.role === 'user').at(-1);
+    return await sendMessage(page, lastUser.content);
+}
+```
+
+> [!NOTE]
+> The system prompt injection adds ~1-2 seconds of overhead per new conversation. It reuses the same thread for follow-up messages so the cost is only paid once.
+
+---
+
+## Feature 15: Multi-Turn Conversation Memory
+
+Pass your entire `messages` array and BridgeGPT will intelligently feed the conversation history into a single ChatGPT thread, giving the model full context — just like the real API.
+
+### API Usage (Standard OpenAI format)
+
+```json
+{
+    "messages": [
+        {"role": "user", "content": "My name is Dasun."},
+        {"role": "assistant", "content": "Nice to meet you, Dasun!"},
+        {"role": "user", "content": "What is my name?"}
+    ]
+}
+```
+
+**Response:**
+```json
+{
+    "choices": [{
+        "message": {
+            "role": "assistant",
+            "content": "Your name is Dasun! 😊"
+        }
+    }]
+}
+```
+
+### How It Works
+
+On each request, BridgeGPT inspects the `messages` array. If there is prior conversation history, it feeds all prior turns into an existing chat thread before sending the latest user message.
+
+```javascript
+// Implementation in router.js
+async function handleMultiTurnConversation(page, messages) {
+    const history = messages.slice(0, -1); // All messages except the last
+    const latestUserMessage = messages.at(-1).content;
+
+    if (history.length > 0) {
+        // Build the full history into a single context message
+        const contextBlock = history.map(m =>
+            `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`
+        ).join('\n\n');
+
+        const prompt = `[CONVERSATION HISTORY]:\n${contextBlock}\n\n[CONTINUE THE CONVERSATION]:\nUser: ${latestUserMessage}`;
+        return await sendMessage(page, prompt);
+    }
+
+    return await sendMessage(page, latestUserMessage);
+}
+```
+
+### Configuration
+
+```env
+# .env additions
+MAX_HISTORY_MESSAGES=20   # Only pass last N messages to avoid overloading context
+```
+
+---
+
+## Feature 16: Usage Token Counting
+
+Return real estimated token counts in the `usage` field of every response, making drop-in SDK compatibility perfect.
+
+### Response (Before — v1)
+
+```json
+{
+    "usage": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+    }
+}
+```
+
+### Response (After — v2 with token counting)
+
+```json
+{
+    "usage": {
+        "prompt_tokens": 42,
+        "completion_tokens": 87,
+        "total_tokens": 129
+    }
+}
+```
+
+### Implementation
+
+Uses the `js-tiktoken` library — the same tokenizer OpenAI uses internally.
+
+```bash
+npm install js-tiktoken
+```
+
+```javascript
+// src/utils/tokenizer.js
+import { encodingForModel } from 'js-tiktoken';
+
+const enc = encodingForModel('gpt-4o');
+
+/**
+ * Count tokens in a string using GPT-4o's tokenizer.
+ * @param {string} text
+ * @returns {number}
+ */
+export function countTokens(text) {
+    return enc.encode(text).length;
+}
+
+/**
+ * Count tokens for a messages array (OpenAI format).
+ * @param {Array<{role: string, content: string}>} messages
+ * @returns {number}
+ */
+export function countMessageTokens(messages) {
+    return messages.reduce((total, msg) => {
+        return total + countTokens(msg.content) + 4; // 4 tokens per message overhead
+    }, 0);
+}
+```
+
+Then in `helpers.js`, update `formatResponse()`:
+
+```javascript
+import { countTokens, countMessageTokens } from './tokenizer.js';
+
+export function formatResponse(text, inputMessages = []) {
+    return {
+        id: `chatcmpl-${generateId()}`,
+        object: 'chat.completion',
+        created: Math.floor(Date.now() / 1000),
+        model: 'bridgegpt',
+        choices: [{
+            index: 0,
+            message: { role: 'assistant', content: text },
+            finish_reason: 'stop',
+        }],
+        usage: {
+            prompt_tokens: countMessageTokens(inputMessages),
+            completion_tokens: countTokens(text),
+            total_tokens: countMessageTokens(inputMessages) + countTokens(text),
+        },
+    };
+}
+```
+
+---
+
 ## Roadmap (Future)
 
 | Version | Features |
@@ -1350,5 +1560,6 @@ The only change:
 
 ---
 
-*v2 Documentation — ChatToAPI*
+*v2 Documentation — BridgeGPT*
 *Last updated: 2026-03-19*
+
