@@ -7,10 +7,13 @@
  * @module browser/launcher
  */
 
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-extra';
+import stealth from 'puppeteer-extra-plugin-stealth';
 import path from 'path';
 import fs from 'fs';
 import { logger } from '../utils/logger.js';
+
+chromium.use(stealth());
 
 const AUTH_DIR = path.resolve('auth');
 
