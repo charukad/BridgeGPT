@@ -65,7 +65,10 @@ export function createApp(startTime) {
     });
 
     // 4.5 Serve the chat interface at /ui
-    app.use('/ui', express.static(path.resolve('chatinterface')));
+    const uiPath = path.resolve('chatinterface');
+    app.use('/ui', express.static(uiPath));
+    // Fix trailing slash issue so /ui goes to index.html directly
+    app.get('/ui', (req, res) => res.sendFile(path.join(uiPath, 'index.html')));
 
     // 5. API key authentication
     app.use(authMiddleware);
