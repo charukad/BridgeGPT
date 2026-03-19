@@ -53,6 +53,7 @@ export async function launchBrowser(options = {}) {
 
     browserContext = await chromium.launchPersistentContext(AUTH_DIR, {
         headless,
+        channel: 'chrome', // Use actual Google Chrome to bypass Cloudflare
         viewport: { width: 1280, height: 720 },
         userAgent:
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
