@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  bridgegpt:
+    build: .
+    container_name: bridgegpt
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      # Persist session cookies across container restarts
+      - ./auth:/app/auth
+      # Persist logs
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      - HEADLESS=true
+    restart: unless-stopped
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
