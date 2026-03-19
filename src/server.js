@@ -9,6 +9,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import {
     authMiddleware,
     requestLogger,
@@ -59,8 +60,12 @@ export function createApp(startTime) {
             name: 'BridgeGPT',
             version: '1.0.0',
             description: 'ChatGPT-to-API bridge. See /v1/status for details.',
+            frontend: '/ui'
         });
     });
+
+    // 4.5 Serve the chat interface at /ui
+    app.use('/ui', express.static(path.resolve('chatinterface')));
 
     // 5. API key authentication
     app.use(authMiddleware);
