@@ -1,0 +1,40 @@
+{
+  "name": "bridgegpt",
+  "version": "1.0.0",
+  "description": "Turn your ChatGPT subscription into a REST API. Self-hosted reverse proxy using browser automation with OpenAI SDK compatibility.",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "login": "node src/login.js"
+  },
+  "keywords": [
+    "chatgpt",
+    "openai",
+    "reverse-proxy",
+    "api",
+    "playwright",
+    "browser-automation",
+    "self-hosted",
+    "rest-api",
+    "streaming",
+    "sse"
+  ],
+  "author": "charukad",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/charukad/BridgeGPT.git"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "playwright": "^1.58.2",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
