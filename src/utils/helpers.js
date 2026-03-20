@@ -9,6 +9,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import { countTokens, countMessageTokens } from './tokenizer.js';
 
 /**
  * Generate a unique completion ID in OpenAI format.
@@ -54,24 +55,12 @@ export function hashString(str) {
  *
  * @param {string} content - The assistant's response text
  * @param {string} [id] - Optional completion ID (auto-generated if omitted)
+ * @param {Array<{role: string, content: string}>} [inputMessages=[]] - Original request messages for token counting
  * @returns {object} OpenAI-compatible chat completion response
- *
- * @example
- * const response = formatResponse("Hello! How can I help?");
- * // {
- * //   id: "chatcmpl-...",
- * //   object: "chat.completion",
- * //   created: 1711000000,
- * //   model: "bridgegpt",
- * //   choices: [{
- * //     index: 0,
- * //     message: { role: "assistant", content: "Hello! How can I help?" },
- * //     finish_reason: "stop"
- * //   }],
- * //   usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
- * // }
  */
-export function formatResponse(content, id) {
+export function formatResponse(content, id, inputMessages = []) {
+    const promptTokens = countMessageTokens(inputMessages);
+    const completionTokens = countTokens(content);
     return {
         id: id || generateId(),
         object: 'chat.completion',
@@ -88,9 +77,9 @@ export function formatResponse(content, id) {
             },
         ],
         usage: {
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            total_tokens: 0,
+            prompt_tokens: promptTokens,
+            completion_tokens: completionTokens,
+            total_tokens: promptTokens + completionTokens,
         },
     };
 }
@@ -234,7 +223,7 @@ export function getLastUserMessage(messages) {
  * @returns {string} Version string
  */
 export function getVersion() {
-    return '1.0.0';
+    return '2.0.0';
 }
 
 /**
