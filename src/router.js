@@ -158,7 +158,7 @@ export function createRouter(requestQueue, startTime) {
                 cache.set(cacheKey, response);
             }
 
-            res.json(formatResponse(response));
+            res.json(formatResponse(response, undefined, messages));
         } catch (error) {
             next(error);
         }
