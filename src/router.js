@@ -27,7 +27,7 @@ import {
 } from './utils/helpers.js';
 import { withRetry } from './utils/retry.js';
 import { ResponseCache } from './utils/cache.js';
-import { sendMessage, sendMessageStreaming, startNewChat } from './browser/chat.js';
+import { sendMessage, sendMessageStreaming, startNewChat, sendWithSystemPrompt } from './browser/chat.js';
 import { getPage, isBrowserRunning, launchBrowser } from './browser/launcher.js';
 import { isLoggedIn, getSessionStatus, waitForLogin } from './browser/session.js';
 
@@ -148,7 +148,29 @@ export function createRouter(requestQueue, startTime) {
             // ── Non-streaming mode ──
             const response = await requestQueue.enqueue(async () => {
                 return await withRetry(async () => {
-                    return await sendMessage(page, userMessage);
+                    const hasSystemPrompt = messages.some((m) => m.role === 'system');
+                    const hasHistory = messages.filter((m) => m.role !== 'system').length > 1;
+
+                    if (hasSystemPrompt) {
+                        // Feature 14: System prompt support
+                        return await sendWithSystemPrompt(page, messages);
+                    } else if (hasHistory) {
+                        // Feature 15: Multi-turn conversation memory
+                        const maxHistory = parseInt(process.env.MAX_HISTORY_MESSAGES || '20', 10);
+                        const history = messages.slice(0, -1).slice(-maxHistory);
+                        const lastUser = messages.at(-1);
+
+                        const contextBlock = history
+                            .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+                            .join('\n\n');
+
+                        const prompt =
+                            `[CONVERSATION HISTORY]:\n${contextBlock}\n\n` +
+                            `[CONTINUE THE CONVERSATION]:\nUser: ${lastUser.content}`;
+                        return await sendMessage(page, prompt);
+                    } else {
+                        return await sendMessage(page, userMessage);
+                    }
                 });
             });
 
