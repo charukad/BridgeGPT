@@ -30,6 +30,7 @@ import { ResponseCache } from './utils/cache.js';
 import { sendMessage, sendMessageStreaming, startNewChat, sendWithSystemPrompt } from './browser/chat.js';
 import { getPage, isBrowserRunning, launchBrowser } from './browser/launcher.js';
 import { isLoggedIn, getSessionStatus, waitForLogin } from './browser/session.js';
+import { selectModel, SUPPORTED_MODELS, MODEL_MAP } from './browser/modelSelector.js';
 
 /**
  * Create and configure the API router.
@@ -145,6 +146,10 @@ export function createRouter(requestQueue, startTime) {
                 return;
             }
 
+            // Select model if specified
+            const requestedModel = req.body.model || 'auto';
+            await selectModel(page, requestedModel);
+
             // ── Non-streaming mode ──
             const response = await requestQueue.enqueue(async () => {
                 return await withRetry(async () => {
@@ -214,6 +219,22 @@ export function createRouter(requestQueue, startTime) {
         } catch (error) {
             next(error);
         }
+    });
+
+    // ─────────────────────────────────────────────
+    // GET /v1/models
+    // ─────────────────────────────────────────────
+    router.get('/v1/models', (req, res) => {
+        const now = Math.floor(Date.now() / 1000);
+        const models = SUPPORTED_MODELS.map((id) => ({
+            id,
+            object: 'model',
+            created: now,
+            owned_by: 'bridgegpt',
+            display_name: MODEL_MAP[id],
+        }));
+
+        res.json({ object: 'list', data: models });
     });
 
     // ─────────────────────────────────────────────
