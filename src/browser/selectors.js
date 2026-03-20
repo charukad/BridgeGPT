@@ -71,9 +71,14 @@ export const SELECTORS = {
     CHAT_CONTAINER: 'main[class*="flex"]',
 
     /**
-     * Model selector dropdown trigger.
+     * Model selector dropdown trigger button.
      */
-    MODEL_SELECTOR: '[data-testid="model-selector"], button[class*="model"]',
+    MODEL_SELECTOR: '[data-testid="model-selector"], button[class*="model"], button:has-text("GPT")',
+
+    /**
+     * Model option items inside the open dropdown.
+     */
+    MODEL_OPTION: '[data-testid^="model-"], [role="option"], [role="menuitem"]',
 };
 
 /**
