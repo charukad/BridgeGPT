@@ -12,6 +12,44 @@ import { sleep } from '../utils/helpers.js';
 import { SELECTORS, TIMEOUTS } from './selectors.js';
 
 /**
+ * Send a message array that may include a `system` role message.
+ *
+ * Since ChatGPT web has no system prompt field, we inject the system
+ * instruction as a hidden first user message that sets the persona,
+ * then send the actual user content.
+ *
+ * @param {import('playwright').Page} page - The browser page
+ * @param {Array<{role: string, content: string}>} messages - Full messages array
+ * @returns {Promise<string>} The assistant's response text
+ */
+export async function sendWithSystemPrompt(page, messages) {
+    const systemMsg = messages.find((m) => m.role === 'system');
+    const userMessages = messages.filter((m) => m.role !== 'system');
+    const lastUserMsg = [...userMessages].reverse().find((m) => m.role === 'user');
+
+    if (!lastUserMsg) {
+        throw new Error('No user message found in messages array');
+    }
+
+    if (systemMsg) {
+        logger.debug('Injecting system prompt as hidden first turn');
+        const injection =
+            `[SYSTEM INSTRUCTION — follow these rules for this entire conversation]:\n` +
+            `${systemMsg.content}\n\n` +
+            `Acknowledge you understand these instructions in one short sentence.`;
+
+        // Send the system injection and discard the acknowledgment
+        await sendMessage(page, injection);
+        logger.debug('System prompt acknowledged by model');
+    }
+
+    // Now send the real user message
+    return await sendMessage(page, lastUserMsg.content);
+}
+
+
+
+/**
  * Send a message to ChatGPT and wait for the complete response.
  *
  * Flow:
